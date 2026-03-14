@@ -60,6 +60,7 @@ export default function App() {
   const [mode, setMode] = useState<GameMode | null>(null);
   const [turn, setTurn] = useState<'player' | 'ai'>('player');
   const [coopStep, setCoopStep] = useState<'guessing' | 'feedback'>('guessing');
+  const [coopFirstTurn, setCoopFirstTurn] = useState<'player' | 'ai'>('player');
   
   // Player mode state
   const [secretCode, setSecretCode] = useState<string[]>([]);
@@ -125,9 +126,19 @@ export default function App() {
     } else if (selectedRole === 'coop') {
       const all = generateAllCodes(selectedMode);
       setPossibleCodes(all);
-      setCurrentGuess([null, null, null, null]);
-      setCoopStep('guessing');
-      setTurn('player');
+      setTurn(coopFirstTurn);
+      
+      if (coopFirstTurn === 'player') {
+        setCurrentGuess([null, null, null, null]);
+        setCoopStep('guessing');
+      } else {
+        const firstGuess = selectedMode === 'no-repeat' 
+          ? [COLORS[0].id, COLORS[1].id, COLORS[2].id, COLORS[3].id]
+          : [COLORS[0].id, COLORS[0].id, COLORS[1].id, COLORS[1].id];
+        setAiGuess(firstGuess);
+        setCoopStep('feedback');
+        setFeedbackInput({ red: 0, white: 0 });
+      }
     } else {
       // AI Guesser Mode
       const all = generateAllCodes(selectedMode);
@@ -283,7 +294,10 @@ export default function App() {
       setFeedbackInput({ red: lastGuess.redDots, white: lastGuess.whiteDots });
     } else if (role === 'coop') {
       setGameState('playing');
-      const poppedWasPlayer = newHistory.length % 2 === 0;
+      const poppedWasPlayer = coopFirstTurn === 'player' 
+        ? newHistory.length % 2 === 0 
+        : newHistory.length % 2 !== 0;
+
       if (poppedWasPlayer) {
         setTurn('player');
         setCurrentGuess(lastGuess.colors);
@@ -300,6 +314,8 @@ export default function App() {
       setCurrentGuess([null, null, null, null]);
     }
   };
+
+  const isPlayerTurn = (index: number) => coopFirstTurn === 'player' ? index % 2 === 0 : index % 2 !== 0;
 
   if (!role || !mode) {
     return (
@@ -347,6 +363,34 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            <AnimatePresence>
+              {role === 'coop' && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-3 overflow-hidden">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">谁先开始？</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={() => setCoopFirstTurn('player')}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                        coopFirstTurn === 'player' ? 'border-cyan-500 bg-cyan-50 text-cyan-600' : 'border-gray-100 hover:border-gray-200'
+                      }`}
+                    >
+                      <User size={18} />
+                      <span className="text-sm font-bold">我先猜</span>
+                    </button>
+                    <button 
+                      onClick={() => setCoopFirstTurn('ai')}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                        coopFirstTurn === 'ai' ? 'border-cyan-500 bg-cyan-50 text-cyan-600' : 'border-gray-100 hover:border-gray-200'
+                      }`}
+                    >
+                      <Bot size={18} />
+                      <span className="text-sm font-bold">AI 先猜</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div className="space-y-3">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">规则设定</p>
@@ -404,16 +448,16 @@ export default function App() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className={`bg-white rounded-2xl p-4 flex items-center justify-between shadow-sm border relative group ${
-                role === 'coop' ? (idx % 2 === 0 ? 'border-cyan-100' : 'border-purple-100') : 'border-black/5'
+                role === 'coop' ? (isPlayerTurn(idx) ? 'border-cyan-100' : 'border-purple-100') : 'border-black/5'
               }`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
                   role === 'coop' 
-                    ? (idx % 2 === 0 ? 'bg-cyan-50 text-cyan-500' : 'bg-purple-50 text-purple-500')
+                    ? (isPlayerTurn(idx) ? 'bg-cyan-50 text-cyan-500' : 'bg-purple-50 text-purple-500')
                     : 'bg-red-50 text-red-500'
                 }`}>
-                  {role === 'coop' ? (idx % 2 === 0 ? 'H' : 'AI') : idx + 1}
+                  {role === 'coop' ? (isPlayerTurn(idx) ? 'H' : 'AI') : idx + 1}
                 </div>
                 <div className="flex gap-2">
                   {guess.colors.map((colorId, cIdx) => (
@@ -448,7 +492,11 @@ export default function App() {
         {history.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-gray-300 py-20">
             <Bot size={48} className="mb-4 opacity-20" />
-            <p className="text-sm">{role === 'player' ? '开始你的第一次猜测吧' : 'AI 正在等待你的反馈'}</p>
+            <p className="text-sm">
+              {role === 'player' || (role === 'coop' && turn === 'player') 
+                ? '开始你的第一次猜测吧' 
+                : 'AI 正在等待你的反馈'}
+            </p>
           </div>
         )}
       </div>
