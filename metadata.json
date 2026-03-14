@@ -1,0 +1,5 @@
+{
+  "name": "Color_Mastermind",
+  "description": "A classic color guessing game with two modes: repetition allowed and no repetition. Guess the 4-color sequence based on feedback.",
+  "requestFramePermissions": []
+}
